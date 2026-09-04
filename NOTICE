@@ -1,0 +1,30 @@
+Third-party content in this repository
+
+1. Anthropic skill files (mnt-skills/**, including every SKILL.md and each
+   skill's own LICENSE.txt)
+
+   (c) Anthropic, PBC. Each skill carries its own LICENSE.txt. Verbatim, it
+   grants use under Anthropic's service terms and adds restrictions, including
+   that users may not "extract these materials from the Services or retain
+   copies of these materials outside the Services", may not "reproduce or copy
+   these materials, except for temporary copies created automatically during
+   authorized use of the Services", and may not create derivative works.
+
+   In plain terms: these files are Anthropic's, were captured from a running
+   sandbox for research and interoperability, and their own license does not
+   clearly grant public redistribution. Redistribute them at your own reading
+   of those terms, or remove mnt-skills/ and re-obtain them from your own
+   Claude session (any user can ask Claude to show them).
+
+2. Prebuilt Anthropic binaries (_context/bin/): extract-text, magika,
+   rclone-filestore. Anthropic builds. magika runs a public Google model;
+   extract-text and rclone-filestore are Anthropic-compiled. Included for
+   faithful reproduction and analysis.
+
+3. Everything else in this repo (the Dockerfile, scripts, docs, manifests):
+   MIT, see LICENSE.
+
+4. The base system is Ubuntu 24.04 under its own licenses.
+
+No claim of ownership is made over Anthropic or Google content. "wiggle" is an
+internal Anthropic codename, used descriptively. Not affiliated with Anthropic.

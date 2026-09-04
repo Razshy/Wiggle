@@ -1,51 +1,127 @@
-# wiggle — the claude.ai code-execution sandbox, reproduced
+# Wiggle
 
-A faithful, rebuilt copy of **the VM that runs Claude's code execution** (claude.ai chat/cowork tool sandbox, internally codenamed `wiggle`): Ubuntu 24.04 in a Firecracker microVM with Anthropic's exact package set, tool stack, directory layout, and exec-environment contract.
+A working copy of the sandbox that Claude (claude.ai) runs code in.
 
-Built from a complete filesystem export of a live sandbox (178,151 files, swept end-to-end) plus its recovered build recipe. **Sanitized: zero credentials, keys, cookies, or shell history inside.**
+When Claude executes a command, reads a file, converts a document, or takes a
+screenshot, it is not running on a web server. It is running inside a small
+virtual machine, one per conversation. This repository is that machine: the
+same files, tools, packages, and instructions, packaged so you can run it
+yourself on Docker, e2b, Modal, or any Linux host.
 
-## What's in the box
+Codename `wiggle` is what Anthropic calls this VM internally.
 
-- Ubuntu 24.04.2, 866 apt packages (exact versions pinned in `meta/dpkg-manifest.txt`)
-- Python: 3.12 + uv stack — 114 pinned distributions (`meta/uv-manifest.txt`) — numpy/pandas/scikit-learn/matplotlib/scipy/jupyter, Pillow 12.1.1, opencv, playwright 1.56
-- Node 22.22.2 + 21 pinned npm globals incl. `@anthropic-ai/mcpb`-era toolchain, sharp, puppeteer 23.11 + Chrome-headless-shell 131, playwright chromium-1194 (`/opt/pw-browsers`)
-- Document stack: LibreOffice 24.2, TeX Live 2023, poppler 24.02, qpdf 11.9, ImageMagick 6, tesseract (eng+osd, public models byte-identical), ffmpeg, pandoc, wkhtmltopdf
-- **40 Anthropic skills** at `/mnt/skills` (verbatim — the instruction playbooks Claude follows: docx/pptx/xlsx/pdf, deep-research, morning, skill-creator, mcp-builder, …)
-- Anthropic's custom binaries: `extract-text` (Rust, document→text) and `magika` (public build) — the mount daemon `rclone-filestore` interface is documented in `meta/`
-- Exact `/mnt` layout: `user-data/{uploads,outputs}`, `transcripts`, `tool_results`; exact exec-env contract (18 vars incl. `IS_SANDBOX=yes`) — see `meta/env-contract.md`
+## Quick start
 
-Known authentic quirks preserved: pandoc→PDF needs `fonts-lmodern` + `poppler-data` (missing in the original image too — that's a finding, not a bug), `LANG` unset, npm offline cache deliberately cleaned at build, two `rclone-filestore` builds coexist on the PATH.
-
-## Use it
-
-**Plain Docker (works immediately):**
 ```bash
-docker build -t wiggle .        # uses Dockerfile.recovered (verified to build green)
+docker build -t wiggle .
 docker run -it wiggle bash
+
+# inside:
+soffice --version            # LibreOffice 24.2
+python3 -c "import pandas"   # full data science stack
+ls /mnt/skills               # the 40 playbooks Claude follows
 ```
-**Prebuilt rootfs (fastest):** release asset `wiggle-rootfs-sanitized.tar.zst` (2.53 GB, sha256 in `meta/rootfs-sha256.txt`):
+
+Want the exact bytes instead of a rebuild? The GitHub release carries the
+full filesystem of a live session (8.9 GB, sanitized):
+
 ```bash
-skopeo/umoci or simply: mkdir rootfs && tar --zstd -xf wiggle-rootfs-sanitized.tar.zst -C rootfs
-# or import straight into Docker:
-cat wiggle-rootfs-sanitized.tar.zst | zstd -d | docker import - wiggle:live
+cat wiggle-part-aa wiggle-part-ab > wiggle.tar.zst
+zstd -d -c wiggle.tar.zst | docker import - wiggle:live
 ```
 
-**e2b (same architecture as the original — Firecracker microVM + in-VM daemon):**
-```bash
-e2b template build -n wiggle -d Dockerfile.recovered   # tested with e2b SDK 1.7.0
+## How it works
+
+- Claude decides to run something and sends the command over a private
+  channel to a supervisor process inside the VM.
+- The supervisor starts the command with a fixed environment (see
+  `meta/env-contract.md`) and streams the output back.
+- The command runs as root with no seccomp and no user sandbox. Inside this
+  VM, root is normal. The isolation that matters is the VM boundary itself.
+- User files arrive as mounted folders under `/mnt/user-data`. In production
+  those are remote storage; here they are plain directories.
+
+Machine spec to match if you care about parity: 1 vCPU, 3.9 GiB RAM, no
+swap. Details in `meta/box-spec.md`.
+
+## What is inside
+
+| Capability | What gives you that |
+|---|---|
+| Documents (docx, xlsx, pptx, pdf) | LibreOffice 24.2, pandoc, python-docx, openpyxl |
+| OCR (make scans searchable) | tesseract 5 with English models, byte-identical to the public Google release |
+| File-type detection | magika (Google model, public build) |
+| Web automation and screenshots | Playwright 1.56 with a pinned Chromium at `/opt/pw-browsers`, plus puppeteer with Chrome-headless-shell |
+| Diagrams and charts | mermaid-cli, matplotlib, graphviz |
+| Numbers and data | pandas, numpy, scipy, scikit-learn, Jupyter |
+| Typesetting and PDFs | TeX Live 2023, poppler, qpdf, ImageMagick, wkhtmltopdf |
+| Media | ffmpeg |
+| **The playbooks Claude follows** | `/mnt/skills`, 40 skills, verbatim |
+
+The skills are the interesting part. They are plain Markdown instruction
+files that Claude reads before doing certain jobs: how to fill a PDF form,
+how to run deep research (including the sub-agent prompts), how to drive the
+desktop with computer use, how to build a skill. Public ones cover office
+documents and file reading; example ones cover deep-research, morning
+briefings, painting, MCP server building, and more.
+
+Two custom Anthropic binaries are included: `extract-text` (turns uploaded
+documents into text, Rust) and the mount daemon interface (`rclone-filestore`,
+Go, documented in `meta/filestore-api.md`).
+
+## What is not included
+
+Four things live outside the filesystem, so no dump could contain them:
+
+- The supervisor binary itself (runs from RAM, never from disk).
+- The model, which is remote by definition.
+- Anthropic's egress firewall and its CA roots.
+- The remote storage service behind `/mnt/user-data` (contract documented).
+
+For e2b users: e2b's own daemon takes the supervisor's role, which is why
+this image drops straight into an e2b template.
+
+## Using it with your own agent
+
+Any agent that can shell into a container can use this box exactly the way
+Claude does: read the relevant `/mnt/skills/*/SKILL.md`, then run the tools
+it names. Inject the environment from `meta/env-contract.md` and the
+behavior matches production, quirks included.
+
+## Known quirks (present in the original, kept on purpose)
+
+- `pandoc x.md -o x.pdf` fails until you add `fonts-lmodern` or use the
+  Chromium fallback. The real sandbox has the same hole.
+- `pip install` is blocked by PEP 668. Use `uv`. The offline wheel cache is
+  included.
+- ImageMagick has no SVG coder and ignores `-quality` for webp. Use
+  Pillow or sharp.
+- Tool exit codes lie often. Verify outputs (`test -s out && file out`)
+  instead of trusting success.
+- `extract-text` segfaults under x86 emulation on ARM Macs. It is fine on
+  native x86-64 hosts.
+
+## Repository layout
+
 ```
-then `Sandbox(template="wiggle")` — your agent sees Claude's sandbox: same binaries, same paths, same skills, same quirks. (The original's PID 1 `process_api` is replaced by e2b's `envd` — role-equivalent.)
+Dockerfile          recovered build recipe (verified to build green)
+_context/           build inputs: pinned manifests + the Anthropic binaries
+mnt-skills/         the 40 skills, copied to /mnt/skills
+meta/               manifests, env contract, filestore API, machine spec
+ROOTFS.md           how to get the exact live filesystem dump
+```
 
-**Modal / any Firecracker or container platform:** the Dockerfile is plain `ubuntu:24.04` + steps; nothing Anthropic-proprietary required.
+## License
 
-## Notes
+The build recipe, scripts, and documentation in this repo are MIT (`LICENSE`).
 
-- The original mounts a per-conversation remote filesystem (custom rclone backend over Anthropic's Filestore API). Here `/mnt/user-data/*` are local dirs; the RPC contract is documented in `meta/filestore-api.md`.
-- Not included (Anthropic-side by design): the in-VM supervisor binary, MITM egress CAs, the telemetry collector. Egress in production is an allowlist (PyPI/npm/GitHub/Ubuntu/Anthropic API) — configure in your platform.
-- Verified (parity smoke-test of the imported live rootfs, Docker on Apple Silicon): 866/866 packages, LibreOffice 24.2.7.2, pandoc 3.1.3, magika 1.0.1, node 22.22.2, python 3.12.3 + full 114-dist stack (pandas/numpy/pdfplumber/pypdfium2/playwright/cv2 import OK), 21 npm globals, skills present, env contract intact. Two notes: `extract-text` SIGSEGVs only under Rosetta/qemu x86 emulation (ARM hosts) — fine on native x86-64; `/mnt/user-data/outputs` + `tool_results` are mount points that exist only when the (Anthropic-side) mounts are attached — `mkdir` them or use the Dockerfile, which creates them.
+Everything Anthropic-made is theirs, not MIT:
 
-<!-- parity verified 2026-09-04: docker import of live rootfs -> 866 pkgs, all stacks OK -->
+- The 40 skill files in `mnt-skills/` and the Anthropic binaries each carry
+  Anthropic's own license (`NOTICE` and each `LICENSE.txt`), which does not
+  clearly allow redistribution. They are here as captured research artifacts.
+- If you would rather not ship them, delete `mnt-skills/` and remove the one
+  `COPY mnt-skills/` line from the Dockerfile. The box still builds and runs;
+  any user can re-obtain the skills by asking Claude to show them.
 
-- Everything here was reconstructed from the container itself + public CVE data; see the write-up: [link to your post].
-
-*Not affiliated with Anthropic. Reproduce freely.*
+Not affiliated with Anthropic.
