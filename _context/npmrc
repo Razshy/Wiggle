@@ -1,0 +1,2 @@
+PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+prefix=/home/claude/.npm-global
