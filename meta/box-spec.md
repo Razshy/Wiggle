@@ -1,7 +1,8 @@
 # Machine spec
 
 The image is the disk. To match Anthropic's sandbox, configure the VM around
-it like this:
+it like this. Companion docs: [env-contract.md](env-contract.md),
+[filestore-api.md](filestore-api.md), [../README.md](../README.md).
 
 | Setting | Value |
 |---|---|
@@ -43,7 +44,7 @@ Two intentional oddities: `HOME` is `/root` but `PATH` leads with
 ## Gotchas (all present in the original)
 
 - `pandoc x.md -o x.pdf` fails until you add `fonts-lmodern` or use a
-  fallback engine. See the README.
+  fallback engine. See [../README.md](../README.md).
 - ImageMagick has no SVG coder and ignores `-quality` on webp. Use Pillow or
   sharp.
 - `pip install` is blocked by PEP 668. Use `uv`. The offline cache is included.

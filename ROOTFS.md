@@ -8,16 +8,18 @@ Two ways, from fastest to most authentic.
 docker build -t wiggle .
 ```
 
-The `Dockerfile` is the build recipe recovered from the container's own
-package timestamps and logs. It replays the exact build (verified green).
-Takes about 25 to 40 minutes and produces an image functionally equal to the
-live sandbox, minus the Anthropic-only daemons. On e2b:
-`e2b template build -n wiggle` (needs the e2b CLI and `E2B_API_KEY`).
+The [Dockerfile](Dockerfile) is the build recipe recovered from the
+container's own package timestamps and logs. It replays the exact build
+(verified green). Takes about 25 to 40 minutes and produces an image
+functionally equal to the live sandbox, minus the Anthropic-only daemons. On
+e2b: `e2b template build -n wiggle` (needs the e2b CLI and `E2B_API_KEY`).
+See [meta/box-spec.md](meta/box-spec.md) for the VM settings around it.
 
 ## 2. Exact live rootfs (byte-level session export)
 
-The GitHub release `v1.0-live-rootfs` carries the complete filesystem of a
-live session, split in two for GitHub's 2 GiB asset limit:
+The [GitHub release](https://github.com/Razshy/Wiggle/releases/tag/v1.0-live-rootfs)
+carries the complete filesystem of a live session, split in two for GitHub's
+2 GiB asset limit:
 
 ```bash
 # download wiggle-part-aa and wiggle-part-ab from the release, then:

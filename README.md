@@ -22,27 +22,30 @@ python3 -c "import pandas"   # full data science stack
 ls /mnt/skills               # the 40 playbooks Claude follows
 ```
 
-Want the exact bytes instead of a rebuild? The GitHub release carries the
-full filesystem of a live session (8.9 GB, sanitized):
+Want the exact bytes instead of a rebuild? The
+[GitHub release](https://github.com/Razshy/Wiggle/releases/tag/v1.0-live-rootfs)
+carries the full filesystem of a live session (8.9 GB, sanitized):
 
 ```bash
 cat wiggle-part-aa wiggle-part-ab > wiggle.tar.zst
 zstd -d -c wiggle.tar.zst | docker import - wiggle:live
 ```
 
+See [ROOTFS.md](ROOTFS.md) for the full download and verification steps.
+
 ## How it works
 
 - Claude decides to run something and sends the command over a private
   channel to a supervisor process inside the VM.
 - The supervisor starts the command with a fixed environment (see
-  `meta/env-contract.md`) and streams the output back.
+  [meta/env-contract.md](meta/env-contract.md)) and streams the output back.
 - The command runs as root with no seccomp and no user sandbox. Inside this
   VM, root is normal. The isolation that matters is the VM boundary itself.
 - User files arrive as mounted folders under `/mnt/user-data`. In production
   those are remote storage; here they are plain directories.
 
-Machine spec to match if you care about parity: 1 vCPU, 3.9 GiB RAM, no
-swap. Details in `meta/box-spec.md`.
+Machine spec to match if you care about parity: 1 vCPU, 3.9 GiB RAM, no swap.
+Details in [meta/box-spec.md](meta/box-spec.md).
 
 ## What is inside
 
@@ -56,18 +59,19 @@ swap. Details in `meta/box-spec.md`.
 | Numbers and data | pandas, numpy, scipy, scikit-learn, Jupyter |
 | Typesetting and PDFs | TeX Live 2023, poppler, qpdf, ImageMagick, wkhtmltopdf |
 | Media | ffmpeg |
-| **The playbooks Claude follows** | `/mnt/skills`, 40 skills, verbatim |
+| **The playbooks Claude follows** | [mnt-skills/](mnt-skills/), 40 skills, verbatim |
 
 The skills are the interesting part. They are plain Markdown instruction
 files that Claude reads before doing certain jobs: how to fill a PDF form,
 how to run deep research (including the sub-agent prompts), how to drive the
 desktop with computer use, how to build a skill. Public ones cover office
 documents and file reading; example ones cover deep-research, morning
-briefings, painting, MCP server building, and more.
+briefings, painting, MCP server building, and more. Browse them under
+[mnt-skills/](mnt-skills/).
 
 Two custom Anthropic binaries are included: `extract-text` (turns uploaded
 documents into text, Rust) and the mount daemon interface (`rclone-filestore`,
-Go, documented in `meta/filestore-api.md`).
+Go, documented in [meta/filestore-api.md](meta/filestore-api.md)).
 
 ## What is not included
 
@@ -76,7 +80,8 @@ Four things live outside the filesystem, so no dump could contain them:
 - The supervisor binary itself (runs from RAM, never from disk).
 - The model, which is remote by definition.
 - Anthropic's egress firewall and its CA roots.
-- The remote storage service behind `/mnt/user-data` (contract documented).
+- The remote storage service behind `/mnt/user-data`, whose contract is
+  documented in [meta/filestore-api.md](meta/filestore-api.md).
 
 For e2b users: e2b's own daemon takes the supervisor's role, which is why
 this image drops straight into an e2b template.
@@ -84,9 +89,10 @@ this image drops straight into an e2b template.
 ## Using it with your own agent
 
 Any agent that can shell into a container can use this box exactly the way
-Claude does: read the relevant `/mnt/skills/*/SKILL.md`, then run the tools
-it names. Inject the environment from `meta/env-contract.md` and the
-behavior matches production, quirks included.
+Claude does: read the relevant `/mnt/skills/*/SKILL.md`, then run the tools it
+names. Inject the environment from
+[meta/env-contract.md](meta/env-contract.md) and the behavior matches
+production, quirks included.
 
 ## Known quirks (present in the original, kept on purpose)
 
@@ -94,8 +100,8 @@ behavior matches production, quirks included.
   Chromium fallback. The real sandbox has the same hole.
 - `pip install` is blocked by PEP 668. Use `uv`. The offline wheel cache is
   included.
-- ImageMagick has no SVG coder and ignores `-quality` for webp. Use
-  Pillow or sharp.
+- ImageMagick has no SVG coder and ignores `-quality` for webp. Use Pillow or
+  sharp.
 - Tool exit codes lie often. Verify outputs (`test -s out && file out`)
   instead of trusting success.
 - `extract-text` segfaults under x86 emulation on ARM Macs. It is fine on
@@ -103,23 +109,29 @@ behavior matches production, quirks included.
 
 ## Repository layout
 
-```
-Dockerfile          recovered build recipe (verified to build green)
-_context/           build inputs: pinned manifests + the Anthropic binaries
-mnt-skills/         the 40 skills, copied to /mnt/skills
-meta/               manifests, env contract, filestore API, machine spec
-ROOTFS.md           how to get the exact live filesystem dump
-```
+- [Dockerfile](Dockerfile) the recovered build recipe (verified to build green)
+- [_context/](_context/) build inputs: pinned manifests and the Anthropic binaries
+- [mnt-skills/](mnt-skills/) the 40 skills, copied into the image at `/mnt/skills`
+- [meta/](meta/)
+  [dpkg-manifest](meta/dpkg-manifest.txt),
+  [uv-manifest](meta/uv-manifest.txt),
+  [env-contract](meta/env-contract.md),
+  [filestore-api](meta/filestore-api.md),
+  [box-spec](meta/box-spec.md)
+- [ROOTFS.md](ROOTFS.md) how to get the exact live filesystem dump
+- [LICENSE](LICENSE) and [NOTICE](NOTICE)
 
 ## License
 
-The build recipe, scripts, and documentation in this repo are MIT (`LICENSE`).
+The build recipe, scripts, and documentation in this repo are MIT
+([LICENSE](LICENSE)).
 
 Everything Anthropic-made is theirs, not MIT:
 
-- The 40 skill files in `mnt-skills/` and the Anthropic binaries each carry
-  Anthropic's own license (`NOTICE` and each `LICENSE.txt`), which does not
-  clearly allow redistribution. They are here as captured research artifacts.
+- The 40 skill files in [mnt-skills/](mnt-skills/) and the Anthropic binaries
+  each carry Anthropic's own license ([NOTICE](NOTICE) and each
+  `LICENSE.txt`), which does not clearly allow redistribution. They are here
+  as captured research artifacts.
 - If you would rather not ship them, delete `mnt-skills/` and remove the one
   `COPY mnt-skills/` line from the Dockerfile. The box still builds and runs;
   any user can re-obtain the skills by asking Claude to show them.

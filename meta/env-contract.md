@@ -1,7 +1,10 @@
 # The exec-environment contract
 
 What every command Claude runs receives, injected by the supervisor at
-handoff. Reproduce it and behavior matches production.
+handoff. Reproduce it and behavior matches production. Companion docs:
+[box-spec.md](box-spec.md) (VM settings),
+[filestore-api.md](filestore-api.md) (the mount backend),
+[../README.md](../README.md).
 
 ```
 DEBIAN_FRONTEND=noninteractive

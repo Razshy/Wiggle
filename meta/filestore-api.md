@@ -2,7 +2,9 @@
 
 What the mount daemon (`rclone-filestore`, a custom Go build) speaks.
 Recovered from the binary's symbols. Included so you can build a stand-in
-backend if you want the mounts to behave like production.
+backend if you want the mounts to behave like production. Companion docs:
+[env-contract.md](env-contract.md), [box-spec.md](box-spec.md),
+[../README.md](../README.md).
 
 ## Transport
 
