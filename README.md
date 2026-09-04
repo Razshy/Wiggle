@@ -42,6 +42,10 @@ then `Sandbox(template="wiggle")` — your agent sees Claude's sandbox: same bin
 
 - The original mounts a per-conversation remote filesystem (custom rclone backend over Anthropic's Filestore API). Here `/mnt/user-data/*` are local dirs; the RPC contract is documented in `meta/filestore-api.md`.
 - Not included (Anthropic-side by design): the in-VM supervisor binary, MITM egress CAs, the telemetry collector. Egress in production is an allowlist (PyPI/npm/GitHub/Ubuntu/Anthropic API) — configure in your platform.
+- Verified (parity smoke-test of the imported live rootfs, Docker on Apple Silicon): 866/866 packages, LibreOffice 24.2.7.2, pandoc 3.1.3, magika 1.0.1, node 22.22.2, python 3.12.3 + full 114-dist stack (pandas/numpy/pdfplumber/pypdfium2/playwright/cv2 import OK), 21 npm globals, skills present, env contract intact. Two notes: `extract-text` SIGSEGVs only under Rosetta/qemu x86 emulation (ARM hosts) — fine on native x86-64; `/mnt/user-data/outputs` + `tool_results` are mount points that exist only when the (Anthropic-side) mounts are attached — `mkdir` them or use the Dockerfile, which creates them.
+
+<!-- parity verified 2026-09-04: docker import of live rootfs -> 866 pkgs, all stacks OK -->
+
 - Everything here was reconstructed from the container itself + public CVE data; see the write-up: [link to your post].
 
 *Not affiliated with Anthropic. Reproduce freely.*
