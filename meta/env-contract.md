@@ -14,7 +14,7 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 LANG=<absent on purpose>
 NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
 NODE_PATH=/usr/local/lib/node_modules_global
-NPM_CONFIG_USERCONFIG=/home/claude/.npmrc
+NPM_CONFIG_USERCONFIG=/root/.npmrc
 PATH=/home/claude/.npm-global/bin:/usr/local/bin:...
 PIP_CACHE_DIR=<set>
 PIP_CONFIG_FILE=<set>
@@ -31,8 +31,14 @@ Three things worth knowing, all authentic:
 
 - `HOME` is `/root` but `PATH` leads with `/home/claude`. The mismatch is
   real and causes the Playwright/browser path quirks people hit.
-- `NPM_CONFIG_USERCONFIG` points at a file that is never read, because
-  `HOME` is `/root`. Original quirk, kept.
+- `NPM_CONFIG_USERCONFIG` points at `/root/.npmrc` and `PIP_CONFIG_FILE` at
+  `/root/.config/pip/pip.conf` — and neither file exists in the image
+  (verified against the export). Correct paths, absent targets: prefix and
+  index settings silently fall back to defaults. Original quirk, kept.
+- The capture also includes `RUST_BACKTRACE=1`, `OLDPWD=/` and `PWD=…`
+  (19 vars total; the PWD pair is per-invocation, not contract content).
+  `SBX_TELEMETRY_SOCKET` is NOT in the Sept-1 capture — it arrived on later
+  builds; it is provider-injected here, never assumed.
 - `LANG` is deliberately unset, which is why some tools behave as pure ASCII.
 
 Notes:
